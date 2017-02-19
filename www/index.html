@@ -98,6 +98,8 @@
     document.addEventListener("deviceready", onDeviceReady, false);
   
     function onDeviceReady() {
+
+  alert('ready');
       screen.lockOrientation('portrait');
 
       window.plugins.insomnia.keepAwake();
@@ -128,6 +130,7 @@
       else {
         set_language(valasztott_nyelv);
       }
+  alert(valasztott_nyelv);
 
       $(".locked").hide();
       $(".subscribed").show();
