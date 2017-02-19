@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Magic Scale</title>
+
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1">
+
+    <link href="css/ratchet.css" rel="stylesheet">
+    <link href="css/purchased.css" rel="stylesheet">
+
+    <script type="text/javascript" src="cordova.js"></script>
+    <script type="text/javascript" src="js/jquery-1.9.1.min.js"></script>
+    <script src="js/ratchet.js"></script>
+
+    <script type="text/javascript" src="languages/eng.js"></script>
+
+    <style>
+      @font-face {
+        font-family: betutipus;
+        src: url('fonts/new_academy.ttf');
+      }
+      @font-face {
+        font-family: enigma;
+        src: url('fonts/enigma.ttf');
+      }
+
+      .noselect {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        touch-callout: none;
+        -webkit-tap-highlight-color:rgba(0,0,0,0);
+      }
+
+      *:not(input):not(textarea) {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        touch-callout: none;
+        -webkit-tap-highlight-color:rgba(0,0,0,0);
+      }
+
+      html {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        touch-callout: none;
+        -webkit-tap-highlight-color:rgba(0,0,0,0);
+      }
+
+
+      img {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout:none;
+        -webkit-tap-highlight-color:rgba(0,0,0,0);
+      }
+
+      .jobb {
+        width: 120px;
+        padding:10px;
+        text-align:right;
+      }
+
+      .bal {
+        padding:10px;
+        text-align:right;
+      }
+
+      .toggle {
+        float:right;
+      }
+
+      .content {
+        background:transparent;
+      }
+
+      ::-webkit-scrollbar { 
+        display: none;
+      }
+
+      select, option {
+        text-align: center !important;
+      }
+
+
+    </style>
+
+  <script type="text/javascript" charset="utf-8">
+
+    var app_azonosito = "merleg";
+    var email_kivalasztva, emailplugin, ellenorzes_mod='email', kod_elmentve, inditani=false;
+
+    var storage, autostart, kilepett, valasztott_nyelv;
+    var email_vasarolt, megvasarolva=false, uuid_vasarolt, emailcim_tomb=[];
+
+    document.addEventListener("deviceready", onDeviceReady, false);
+  
+    function onDeviceReady() {
+      screen.lockOrientation('portrait');
+
+      window.plugins.insomnia.keepAwake();
+
+      storage = window.localStorage;
+
+      kilepett = logikai(storage.getItem("kilepett"));
+      if (!kilepett) {
+        kilepett=false;
+        storage.setItem("kilepett",false);
+      }
+
+      autostart = logikai(storage.getItem("autostart"));
+      if (!autostart) {
+        autostart=false;
+        storage.setItem("autostart",false);
+      }
+
+      //==================== egyedi opciók ===================================================================================
+
+
+      //==================== egyedi opciók vége ===============================================================================
+
+      valasztott_nyelv = storage.getItem("valasztott_nyelv");
+      if (!valasztott_nyelv) {
+        navigator.globalization.getPreferredLanguage(nyelvSiker, nyelvHiba);
+      }
+      else {
+        set_language(valasztott_nyelv);
+      }
+
+      $(".locked").hide();
+      $(".subscribed").show();
+
+      setbetolt();
+      $('body').fadeIn();
+
+    }
+
+    // ÁLTALÁNOS FUNKCIÓK ======================================================================
+
+    function nyelvSiker(nyelv) {
+      if (nyelv.value=="hu-HU") {
+        valasztott_nyelv="hun";
+      }
+      else {
+        valasztott_nyelv="eng";
+      }
+      storage.setItem("valasztott_nyelv",valasztott_nyelv);
+      set_language(valasztott_nyelv);
+    }
+
+    function nyelvHiba() {
+      valasztott_nyelv="eng";
+      storage.setItem("valasztott_nyelv",valasztott_nyelv);
+      set_language(valasztott_nyelv);
+    }
+
+    function set_language(mire) {
+      $.getScript('languages/'+mire+'.js', function() {
+        txt_beallit();
+
+        // a Ratchet kapcsolók szövegének felülbírálása:
+        document.styleSheets[0].addRule('.toggle:before','content: "'+txt_ki+'" !important;');
+        document.styleSheets[0].addRule('.toggle.active:before','content: "'+txt_be+'" !important;');
+
+        auto_inditas();
+
+      });
+    }
+
+    function txt_beallit() {
+      set_txt_lang('cime2');
+      set_txt_lang('alcim');
+      set_txt_lang('buy_magic');
+      set_txt_lang('start_magic');
+
+      set_txt_lang('mainset');
+      set_txt_lang('autostart');
+      set_txt_lang('setscr');
+      set_txt_lang('reset');
+      set_txt_lang('lang');
+
+      set_menu_lang('menu1');
+      set_menu_lang('menu2');
+      set_menu_lang('menu2b');
+      set_menu_lang('menu5');
+    }
+
+    function set_txt_lang(mit) {
+      $('#txt_'+mit).html(window['txt_'+mit]);
+    }
+
+    function set_menu_lang(mit) {
+      $('.'+mit).html(window['txt_'+mit]);
+    }
+
+    function auto_inditas() {
+      if (autostart && !kilepett) {
+        inditas();
+      }
+      else if (kilepett) {
+        menupont('beallitas');
+        kilepett=false;
+        storage.setItem("kilepett",false);
+      }
+      else {
+        kilepett=false;
+        storage.setItem("kilepett",false);
+        $('#div_nyitolap').delay(500).fadeIn(500);
+      }
+    }
+
+    function inditas() {
+      indul();
+    }
+
+    function menupont(ezt) {
+      $('#div_nyitolap').hide();
+      $('#div_beallitas').hide();
+      $('#div_'+ezt).show();
+      if (ezt=='beallitas') {
+        setbetolt();
+      }
+    }
+
+    function kulcsok(obj){
+       var keys = [];
+       for(var key in obj){
+         if (obj.hasOwnProperty(key)) {
+           keys.push(key);
+         }
+       }
+       return keys;
+    }
+
+    function logikai(mibol) {
+      if (mibol==true || mibol=="true") {
+        return true;
+      }
+      else {
+        return false;
+      }
+    }
+
+
+    function hiba() {
+    }
+
+    function siker() {
+    }
+
+    function indul() {
+      top.location='start.html';
+    }
+
+    function uzenet_ablak(cime,szovege) {
+      navigator.notification.alert(szovege, siker, cime, 'OK')
+    }
+
+
+
+    // BEÁLLÍTÁSOK:
+    //================================================================
+    function setbetolt() {
+      if (autostart) {
+        $("#autostart").addClass('active');
+      }
+    }
+
+    function autostart_kapcs() {
+      autostart=!autostart;
+      storage.setItem("autostart",autostart);
+    }
+
+    //============ BEÁLLÍTÁSOK VÉGE ====================================================
+
+
+  </script>
+
+</head>
+
+
+  <body style="background: #000000; padding:0px; margin:0px; height:100%; min-height:100%">
+
+    <div id="oldal" style="display:none; background-color:#faf1e7; width:100%; height:100%; padding:0px; margin:0px">
+
+      <!-- =========================================================================================================== -->
+      <!-- ==========================================   NYITÓLAP   =================================================== -->
+      <!-- =========================================================================================================== -->
+      <div id="div_nyitolap">
+
+        <nav class="bar bar-tab">
+          <a class="tab-item active" onClick="menupont('nyitolap')">
+            <span class="icon icon-home2"></span>
+            <span class="tab-label menu1">Home</span>
+          </a>
+          <a class="tab-item purchased" onClick="inditas()">
+            <span class="icon icon-play"></span>
+            <span class="tab-label menu2">Start</span>
+          </a>
+          <a class="tab-item" onClick="menupont('beallitas')">
+            <span class="icon icon-equalizer"></span>
+            <span class="tab-label menu5">Settings</span>
+          </a>
+        </nav>
+
+        <header class="bar bar-nav">
+          <h1 class="title menu1">Home</h1>
+          <a class="icon icon-right-nav pull-right" onClick="menupont('beallitas')"></a>
+        </header>
+
+
+        <div class="content center" style="text-align:center; width:100%; height:100%">
+
+          <div style="height:40px"></div>
+          <div id="txt_cime2" style="font-size:28pt; font-family:enigma">Magic Scale</div>
+          <div style="height:15px"></div>
+          <div id="txt_alcim" style="font-size:14pt; font-style:italic"></div>
+          <div style="height:30px"></div>
+          <img src="img/ikon.png" width="150" border="0" alt="" style="border-radius: 20px; box-shadow: 0px 0px 10px #373737">
+          <div style="height:30px"></div>
+          <button id="txt_start_magic" class="btn btn-positive purchased" style="font-size:20pt; padding:10px; font-weight:bold" onClick="inditas()">START MAGIC TRICK</button>
+          <div style="height:60px"></div>
+        </div>
+
+      </div>
+      <!-- *********************************************************************************************************** -->
+
+
+      <!-- =========================================================================================================== -->
+      <!-- ==========================================   BEÁLLÍTÁSOK   ================================================ -->
+      <!-- =========================================================================================================== -->
+      <div id="div_beallitas" style="display:none">
+        <nav class="bar bar-tab">
+          <a class="tab-item" onClick="menupont('nyitolap')">
+            <span class="icon icon-home2"></span>
+            <span class="tab-label menu1">Home</span>
+          </a>
+          <a class="tab-item purchased" onClick="inditas()">
+            <span class="icon icon-play"></span>
+            <span class="tab-label menu2">Start</span>
+          </a>
+          <a class="tab-item active">
+            <span class="icon icon-equalizer"></span>
+            <span class="tab-label menu5">Settings</span>
+          </a>
+        </nav>
+
+        <header class="bar bar-nav">
+          <a class="icon icon-left-nav pull-left" onClick="menupont('nyitolap')"></a>
+          <h1 class="title menu5">Settings</h1>
+        </header>
+
+        <div class="content center" style="text-align:center; width:100%; height:100%">
+
+          <br><br>
+          <h2 id="txt_mainset">Basic settings</h2>
+
+          <div style="height:20px"></div>
+
+          <table style="width:100%; margin-right:10px">
+            <tr>
+              <td class="bal" id="txt_autostart">Start automatically</td>
+              <td class="jobb" align="right">
+                <div class="toggle pull-right" id="autostart" onToggle="autostart_kapcs()">
+                  <div class="toggle-handle"></div>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <div style="height:20px"></div>
+          <hr>
+          <div style="height:20px"></div>
+
+          <h2 id="txt_lang">Language settings</h2>
+          <div style="height:20px"></div>
+
+          <div style="text-align:center">
+            <img src="img/flag-eng.png" border="0" alt="" style="width:25%" onClick="storage.setItem('kilepett',true); storage.setItem('valasztott_nyelv','eng'); window.location.href='index.html'">
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            <img src="img/flag-hun.png" border="0" alt="" style="width:25%" onClick="storage.setItem('kilepett',true); storage.setItem('valasztott_nyelv','hun'); window.location.href='index.html'">
+          </div>
+
+          <div style="height:40px"></div>
+
+        </div>
+
+      </div>
+      <!-- *********************************************************************************************************** -->
+
+    </div>
+
+  </body>
+</html>

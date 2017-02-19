@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html>
+    
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1">
+
+  <link href="css/ratchet.css" rel="stylesheet">
+
+  <script type="text/javascript" src="cordova.js"></script>
+
+  <script type="text/javascript" src="js/jquery-1.9.1.min.js"></script>
+  <script src="js/ratchet.js"></script>
+
+  <script type="text/javascript" src="js/jquery.touchSwipe.js"></script>
+
+  <style>
+    .kerekitve {
+      -webkit-border-top-right-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+    .lapkerekitve {
+      -webkit-border-radius: 20px;
+      border-radius: 20px;
+    }
+
+    @font-face {
+      font-family: betutipus;
+      src: url('fonts/new_academy.ttf');
+    }
+
+    body, div, .noselect {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-callout: none;
+      -webkit-tap-highlight-color:rgba(0,0,0,0);
+    }
+
+    *:not(input):not(textarea) {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-callout: none;
+      -webkit-tap-highlight-color:rgba(0,0,0,0);
+    }
+
+    html {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-callout: none;
+      -webkit-tap-highlight-color:rgba(0,0,0,0);
+    }
+
+
+    img {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout:none;
+      -webkit-tap-highlight-color:rgba(0,0,0,0);
+    }
+  </style>
+
+  <script type="text/javascript">
+
+    var storage;
+    var valasztott_nyelv, hogylephetki, kilep_szamol=0;
+
+    var skaleid="";
+
+    var zoomin;
+
+    document.addEventListener("deviceready", onDeviceReady, false);
+
+    function onDeviceReady() {
+      screen.lockOrientation('portrait');
+
+      storage = window.localStorage;
+
+      hogylephetki = storage.getItem("hogylephetki");
+      if (!hogylephetki) {
+        hogylephetki=0;
+        storage.setItem("hogylephetki",hogylephetki);
+      }
+      hogylephetki = parseInt(hogylephetki);
+
+      skaleid = storage.getItem("skaleid");
+      if (!skaleid) {
+        skaleid="";
+      }
+      pebblevel=true;
+
+
+      valasztott_nyelv = storage.getItem("valasztott_nyelv");
+      if (!valasztott_nyelv) {
+        valasztott_nyelv="eng";
+        storage.setItem("valasztott_nyelv",valasztott_nyelv);
+      }
+
+      set_language(valasztott_nyelv);
+
+      $("body").swipe({
+        swipe:function(event, direction, distance, duration, fingerCount){
+          if (fingerCount==2 && direction=='up') {
+            kilepes();
+          }
+          else if (fingerCount==2 && direction=='down') {
+            valtas();
+          }
+        },
+        fingers:'all',
+        allowPageScroll:'none',
+        preventDefaultEvents:false
+      });
+
+    }
+
+
+    function logikai(mibol) {
+      if (mibol==true || mibol=="true" || mibol==1 || mibol=="1") {
+        return true;
+      }
+      else {
+        return false;
+      }
+    }
+
+    function kulcsok(obj){
+      var keys = [];
+      for(var key in obj){
+        if (obj.hasOwnProperty(key)) {
+          keys.push(key);
+        }
+      }
+      return keys;
+    }
+
+
+    function set_language(mire) {
+      $.getScript('languages/'+mire+'.js', function() {
+        betoltve();
+      });
+    }
+
+    function betoltve() {
+      $('#oldal').delay(1000).fadeIn(500);
+      keres();
+    }
+
+    function kilepes_modja() {
+      if (hogylephetki<2) {
+        navigator.notification.confirm(
+          txt_kilepes,
+          function(idx) {
+            if (idx==2) {
+              storage.setItem("hogylephetki",2);
+            }
+          },
+          txt_kilep,
+          [txt_ujra,txt_megertette]
+        );
+      }
+    }
+
+    function kilepes() {
+      kilep_szamol+=1;
+      if (kilep_szamol==3) {
+        kilep_szamol=0;
+        navigator.notification.confirm(
+          txt_mitakar,
+          function(idx) {
+            if (idx==1) {
+              lekapcs();
+              storage.setItem("kilepett",true);
+              top.location='index.html';
+            }
+            else if (idx==3) {
+              lekapcs();
+              top.location='start.html';
+            }
+          },
+          txt_mit_valaszt,
+          [txt_mit_kilep,txt_mit_folyt,txt_mit_ujat]
+        );
+      }
+    }
+
+    function uzisiker() {
+      //alert('ÜZISIKER!!!!');
+    }
+    function uzihiba() {
+      //alert('üzihiba!!!!');
+    }
+
+    function hiba() {
+
+    }
+
+    function siker() {
+    }
+
+    function uzenet_ablak(cime,szovege) {
+      navigator.notification.alert(szovege, siker, cime, 'OK')
+    }
+
+    function pebble_kuld_info(tartalma) {
+      if (pebblevel) {
+        //Pebble.sendData(uuidja,[{type: "string", key: "10", value: tartalma, length: "10"}]);
+      }
+    }
+
+    //======================================================================================================================================================
+
+    var most_ms=0, utolso_ms=0, eltelt=1000, mostvan, szine='#ffffff', nemvaltozott=0;
+    var xserv, xcha, stack, valodi_ertek;
+    var egykartya=1.648, aktualis_ertek=0, utolso_ertek=0, utolso_fix=0, levonni=0, gramm, kapcsidozito, figyelzito, merre, megallhat=true, elindult_ms;
+    var rutin="targyak", targyak=[], min_ido, indult=false, keszvan=false, keszidozito;
+    var gyilkos=31, elvehetik=true;
+
+    stack = [
+      "kor_A","karo_3","treff_4","karo_5","kor_7","karo_J","kor_K","pikk_2","treff_6","pikk_8","kor_9","pikk_10","treff_Q",
+      "karo_A","kor_3","pikk_4","kor_5","karo_7","kor_J","karo_K","treff_2","pikk_6","treff_8","karo_9","treff_10","pikk_Q",
+      "pikk_A","treff_3","karo_4","treff_5","pikk_7","treff_J","pikk_K","kor_2","karo_6","kor_8","pikk_9","kor_10","karo_Q",
+      "treff_A","pikk_3","kor_4","pikk_5","treff_7","pikk_J","treff_K","karo_2","kor_6","karo_8","treff_9","karo_10","kor_Q"
+    ];
+
+    function ujraindit() {
+      clearTimeout(kapcsidozito);
+      clearTimeout(figyelzito);
+      clearTimeout(keszidozito);
+      most_ms=0;
+      utolso_ms=0;
+      eltelt=1000;
+      szine='#ffffff';
+      aktualis_ertek=0;
+      utolso_ertek=0;
+      utolso_fix=0;
+      levonni=0;
+      gramm=0;
+      merre='';
+      megallhat=true;
+      rutin="targyak";
+      targyak=[];
+      indult=false;
+      keszvan=false;
+      alaphelyzet();
+    }
+
+    function alaphelyzet() {
+      if (rutin=="kartya") {
+        rutin="stack";
+        keszvan=false;
+        $('#sulydiv').hide();
+        //$('#infodiv').html('<br>0 '+txt_kartyalap+'<br><br>');
+        $('#infodiv').html('<img src="lapok/'+stack[0]+'.png" style="width:100%" onTouchstart="alap()" style="z-index:6000"><br>');
+        min_ido=100;
+      }
+      else if (rutin=="stack") {
+        $('#sulydiv').show();
+        rutin="targyak";
+        targyak=[];
+        $('#infodiv').html('<br><br>'+txt_helyezd);
+        min_ido=500;
+      }
+      else if (rutin=="targyak") {
+        $('#sulydiv').show();
+        rutin="boritek";
+        targyak=[];
+        $('#infodiv').html('<br><br><span style="font-size:150pt" onTouchstart="gyilkos_sulya()">?</span>');
+        min_ido=500;
+      }
+      else if (rutin=="boritek") {
+        $('#sulydiv').show();
+        rutin="kartya";
+        $('#infodiv').html('<br>0 '+txt_kartyalap+'<br><br>');
+        $('#infodiv').append('<img src="lapok/red.png" style="width:50%" onTouchstart="alap()" style="z-index:6000"><br>');
+        min_ido=100;
+      }
+    }
+
+    function boritek_indul() {
+      elvehetik=true;
+    }
+
+    function valtas() {
+      alaphelyzet();
+      megallhat=true;
+      megallt();
+    }
+
+    
+    function keres() {
+      $('#infodiv').append(txt_keres+'<br>');
+      ble.startScan([], function(device) {
+          if (device.name=='Skale' && !indult) {
+            skaleid = device.id;
+            storage.setItem("skaleid",skaleid);
+            $('#infodiv').append(skaleid+'<br>');
+            ble.stopScan(function() {kapcsolodik();},hiba);
+          }
+      }, hiba);
+      setTimeout(nemkeres,30000);
+    }
+
+    function kapcsolodik() {
+      clearTimeout(kapcsidozito);
+      $('#infodiv').append(txt_kapcsolodik+'<br>');
+      ble.connect(skaleid, function() {
+        nemkeres();
+        $('#infodiv').html(txt_kapcsolodva+'<br>');
+        setTimeout(torol,1000);
+        setTimeout(alaphelyzet,1000);
+        clearTimeout(kapcsidozito);
+        megallt();
+        figyel('ff08','ef81');
+      }, function() {
+          if (!indult) {
+            kapcsidozito = setTimeout(kapcsolodik,2000);
+          }
+      });
+    }
+
+    function nemkeres() {
+      ble.stopScan(siker,hiba);
+      if (skaleid=="") {
+        alert(txt_nemelerheto);
+      }
+    }
+
+    function nemfigyel() {
+      ble.stopNotification(skaleid, xserv, xcha, siker, hiba);
+    }
+
+    function lekapcs() {
+      ble.stopNotification(skaleid, xserv, xcha, siker, hiba);
+      ble.disconnect(skaleid);
+      $("#ki").hide();
+      $("#be").show();
+    }
+
+    function lekerdez(serv,cha) {
+      ble.read(skaleid, serv, cha, function(mi) {
+        var data = new Uint8Array(mi);
+        $('#infodiv').html(cha+':<br>'+data.toString());
+      }, hiba);
+    }
+
+    function megallt() {
+      var ennyivolt, sulya, i;
+      clearTimeout(figyelzito);
+      if (Math.abs(aktualis_ertek-utolso_fix)>=5 || megallhat) {
+        mostvan = new Date();
+        most_ms = mostvan.getTime();
+        ennyivolt = most_ms-elindult_ms;
+        megallhat=false;
+        if (gramm<0) {
+          gramm=0;
+        }
+        if (gramm<2000) {
+          $('#sulydiv').html('<br><div id="gr" style="font-size:36pt; color:'+szine+'; z-index:6000" onTouchstart="nullaz()">'+gramm+'g</div>'+'<br><br>');
+          if (rutin=="kartya") {
+            var kartyak = Math.round(gramm/egykartya);
+            $('#infodiv').html('<br>'+kartyak+' '+txt_kartyalap+'<br><br>');
+            $('#infodiv').append('<img src="lapok/red.png" style="width:50%" onTouchstart="alap()" style="z-index:6000"><br>');
+            pebble_kuld_info(kartyak);
+          }
+          else if (rutin=="stack" && !keszvan) {
+            var kartyak = Math.round(gramm/egykartya);
+            //$('#infodiv').html('<br>'+kartyak+' '+txt_kartyalap+'<br><br>');
+            if (kartyak>0 && kartyak<=52) {
+              $('#infodiv').html('<img src="lapok/'+stack[kartyak]+'.png" style="width:100%" style="z-index:6000"><br>');
+              pebble_kuld_info(stack[kartyak]);
+              clearTimeout(keszidozito);
+              keszidozito = setTimeout(keszvagyok,5000);
+            }
+          }
+          else if (rutin=="targyak") {
+            if (aktualis_ertek>utolso_fix) {
+              sulya=(aktualis_ertek-utolso_fix)/10;
+              targyak.push(aktualis_ertek-utolso_fix);
+              $('#infodiv').html('<br><br>'+targyak.length+'.'+txt_targy+': '+sulya+'g');
+              pebble_kuld_info(targyak.length+'.'+txt_targy+': '+sulya+'g');
+            }
+            else if (aktualis_ertek<utolso_fix) {
+              sulya = utolso_fix-aktualis_ertek;
+              for (i=0; i<targyak.length; i++) {
+                if (Math.abs(targyak[i]-sulya)<=2) {
+                  delete targyak[i];
+                  $('#infodiv').html('<br><br>'+(i+1)+'.'+txt_targyle+'<br><br>');
+                  pebble_kuld_info((i+1)+'.'+txt_targyle);
+                }
+              }
+            }
+          }
+          else if (rutin=="boritek" && elvehetik) {
+            if (aktualis_ertek<utolso_fix) {
+              sulya = utolso_fix-aktualis_ertek;
+              if (sulya>=gyilkos*0.9 && sulya<=gyilkos*1.1) {
+                pebble_kuld_info('GYILKOS');
+                pebble_kuld_info('zzz');
+                pebble_kuld_info('zzz');
+                pebble_kuld_info('zzz');
+                navigator.vibrate(1000);
+              }
+            }
+          }
+
+          if (szine=="white") {
+            szine="#66ff99";
+          }
+          $("#gr").css('color',szine);
+          utolso_fix=aktualis_ertek;
+          //if (rutin!="stack") {
+          //  navigator.vibrate(200);
+          //}
+          //$('#infodiv').append('<br>('+ennyivolt+'ms)<br><br>'+utolso_fix);
+        }
+      }
+    }
+
+    function keszvagyok() {
+      clearTimeout(keszidozito);
+      keszvan=true;
+    }
+
+    function figyel(serv,cha) {
+      xserv=serv;
+      xcha=cha;
+      ble.startNotification(skaleid, serv, cha, function(mire) {
+        
+        clearTimeout(figyelzito);
+        indult=true;
+        
+        figyelzito = setTimeout(megallt,200);
+        var data = new Uint8Array(mire);
+        valodi_ertek = data[1]+256*data[2];
+
+        aktualis_ertek = valodi_ertek;
+
+        if (levonni>0) {
+          aktualis_ertek-=levonni;
+        }
+
+        mostvan = new Date();
+        most_ms = mostvan.getTime();
+        if (utolso_ms>0) {
+          eltelt = most_ms-utolso_ms;
+        }
+        utolso_ms = most_ms;
+
+        if (aktualis_ertek<20000) {
+
+          if (Math.abs(aktualis_ertek-utolso_fix)>=5) {
+            megallhat=true;
+          }
+
+          if (Math.abs(aktualis_ertek-utolso_ertek)>2) {
+            szine="white";
+            elindult_ms = most_ms;
+          }
+          else if (Math.abs(aktualis_ertek-utolso_ertek)<=1 && (most_ms-elindult_ms)>=min_ido && (Math.abs(aktualis_ertek-utolso_fix)>=5 || megallhat)) {
+            aktualis_ertek=utolso_ertek;
+            szine="#66ff99";
+            megallt();
+          }
+
+          gramm = aktualis_ertek/10;
+
+          if (gramm<0) {
+            gramm=0;
+          }
+          if (gramm<2000) {
+            $('#sulydiv').html('<br><div id="gr" style="font-size:36pt; color:'+szine+'; z-index:6000" onTouchstart="nullaz()">'+gramm+'g</div>'+'<br><br>');
+          }
+
+          utolso_ertek=aktualis_ertek;
+        }
+      }, hiba);
+    }
+
+    function torol() {
+      $('#infodiv').html('');
+    }
+
+    function alap() {
+      if (levonni>0) {
+        gramm = (aktualis_ertek-levonni)/10;
+      }
+      else {
+        gramm = aktualis_ertek/10;
+      }
+      egykartya=gramm/52;
+      alert(txt_egykartya+''+egykartya+'g');
+    }
+
+    function gyilkos_sulya() {
+      if (levonni>0) {
+        gramm = (aktualis_ertek-levonni)/10;
+      }
+      else {
+        gramm = aktualis_ertek/10;
+      }
+      gyilkos=gramm*10;
+      alert('gyilkos: '+gramm+'g');
+    }
+
+    function nullaz() {
+      if (valodi_ertek<1000) {
+        levonni=valodi_ertek;
+        megallhat=true;
+        megallt();
+        valodi_ertek=0;
+        aktualis_ertek=0;
+        utolso_ertek=0;
+        utolso_fix=0;
+        alert(txt_nullazva+'\n\n(-'+levonni+'g)');
+      }
+    }
+
+    
+  </script>
+
+
+
+  <style>
+    button {
+      font-size:14pt;
+      padding:10px;
+      margin:5px;
+    }
+  </style>
+
+</head>
+
+
+<body style="background:#000000; font-size:20pt; width:100%; height:100%; overflow:hidden; position:fixed; margin:0px; padding:0px; border:0px; font-family:Helvetica">
+
+  <div id="oldal" style="display:none; width:100%; height:100%; background:#000000; color:white; padding:20px">
+    <div id="sulydiv" style="width:100%; height:15%; text-align:center; font-size:24pt; line-height:26pt; background:#000000; color:white"></div>
+    <div id="infodiv" style="width:100%; height:80%; text-align:center; font-size:24pt; line-height:26pt; background:#000000; color:white; padding-top:30px"></div>
+  </div>
+   
+</body>
+
+</html>
