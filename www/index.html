@@ -142,15 +142,9 @@
 
 
     function keres() {
-      ble.startScan([], function(device) {
-          alert(device.name+'\n\n'+device.id);
+      ble.scan([], 120, function(device) {
+          $('#txt_alcim').append('<br>'+device.name);
       }, hiba);
-      setTimeout(nemkeres,60000);
-    }
-
-    function nemkeres() {
-      ble.stopScan(siker,hiba);
-      alert('keresés vége');
     }
 
 
